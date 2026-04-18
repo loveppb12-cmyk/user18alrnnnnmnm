@@ -1,5 +1,5 @@
-from pyrogram import Client, filters
-from pyrogram.types import Message
+from telethon import TelegramClient, events, Button
+from telethon.tl.types import MessageEntityMentionName
 import asyncio
 from datetime import datetime, timedelta
 import os
@@ -12,129 +12,158 @@ logger = logging.getLogger(__name__)
 # Configuration from environment variables
 API_ID = int(os.environ.get("API_ID", 20284828))
 API_HASH = os.environ.get("API_HASH", "a980ba25306901d5c9b899414d6a9ab7")
-STRING_SESSION = os.environ.get("STRING_SESSION", "1BVtsOKEBu2mCSVteN-_nv6WDQAlB_GXOlriz-YHBGeJlZXgYENIyvTptkBrW-ZoBn_HDOAYPFfJCHSut9nJrhKJYmDa4i2oXuVhPNj5dY8_qCCT98PWlKVhRcMq_DJXK_uk2xhwcQn6MMpAwv2BwcMhgQkptNKnv0Dw5fpn-cFQ_62AeX3xSEAnpwHTv0jyjdkqOE4c3hb861_tBw2SmVR0YO_bIH-JyjN8q1uT8zztQW3NbQHBTZ84YM8HTwyONz46w3CCNLFG3KV-aMrb2RgmsbIxCNRXT4cSA68HuVX_cwLX_wVVfxtGQKo-34a_-Ls4eAOOGTeIe1IvfofF897ibxAf03aY=")
+STRING_SESSION = os.environ.get("STRING_SESSION", "1BVtsOKEBu8JXufWBkIppw4YfMJidZE5hJQRijwRMx9Bm9pKE9E9J4ulEpDm6Z9tE5bBffZ3whvsa5-DRy83fIGBBTJD_q5hSPNHLrqVNpJrQS3iYn4DZa_7mv8mmG33MDaQXnyq2GFaoTCUcqOvAGNnunaWrTuD-2hivZGjn_SbeX7GW7XbJOwxrSaaeXqANvZIHxij1XBSjIobmzGOib7Hn9ulPA7dML-gw35bQZk4ZbudlXSGkpSKqtnCugRkR-dN-gLw1di-MLdVy85qk1baPcAUMLtOb3oAFewe4wVgnN5227iRL96NrqqWRwy3HVmxf2_Qjs09QGd-BlFsuEGkIRtqZzFE=")
 
-app = Client("userbot", api_id=API_ID, api_hash=API_HASH, session_string=STRING_SESSION)
+# Create client with string session
+client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
 
 # Dictionary to store active groups
 active_groups = {}
 
-# Keep track of processed messages to avoid double deletion
-processed_messages = set()
-
-@app.on_message(filters.group & ~filters.bot)
-async def auto_delete_messages(client: Client, message: Message):
-    chat_id = message.chat.id
-    
-    # Check if auto-delete is active for this group
-    if chat_id not in active_groups or not active_groups[chat_id]:
-        return
-    
-    # Avoid processing same message twice
-    if message.id in processed_messages:
-        return
-    
-    processed_messages.add(message.id)
-    
-    # Calculate message age
-    current_time = datetime.now()
-    message_time = message.date
-    age = (current_time - message_time).total_seconds()
-    
-    # Also delete bot messages if needed
-    if age >= 120:
-        try:
-            await asyncio.sleep(1)  # Small delay to avoid rate limits
-            await message.delete()
-            logger.info(f"Deleted message {message.id} from {message.chat.title}")
-        except Exception as e:
-            logger.error(f"Failed to delete message: {e}")
-    
-    # Clean up processed_messages set occasionally
-    if len(processed_messages) > 1000:
-        processed_messages.clear()
-
-@app.on_message(filters.command("qwert") & filters.group)
-async def start_auto_delete(client: Client, message: Message):
-    chat_id = message.chat.id
+@client.on(events.NewMessage(pattern=r'\.qwert$'))
+async def start_auto_delete(event):
+    chat_id = event.chat_id
     
     # Check if user is admin
     try:
-        member = await client.get_chat_member(chat_id, message.from_user.id)
-        if member.status not in ["administrator", "creator"]:
-            await message.reply("❌ You need to be an admin to use this command!")
+        sender = await event.get_sender()
+        participant = await event.client.get_permissions(event.chat_id, sender.id)
+        
+        if not participant.is_admin and not participant.is_creator:
+            await event.reply("❌ You need to be an admin to use this command!")
             return
     except Exception as e:
         logger.error(f"Error checking admin status: {e}")
-        await message.reply("❌ Error checking admin status!")
+        await event.reply("❌ Error checking admin status!")
         return
     
     active_groups[chat_id] = True
-    await message.reply("✅ **Auto-delete activated!**\n\n"
-                       "📝 All messages older than 120 seconds will be deleted.\n"
-                       "🛑 Send `.trewq` to stop.\n"
-                       "📊 Send `.status` to check status.")
+    await event.reply("✅ **Auto-delete activated!**\n\n"
+                     "📝 All messages older than 120 seconds will be deleted.\n"
+                     "🛑 Send `.trewq` to stop.\n"
+                     "📊 Send `.status` to check status.")
 
-@app.on_message(filters.command("trewq") & filters.group)
-async def stop_auto_delete(client: Client, message: Message):
-    chat_id = message.chat.id
+@client.on(events.NewMessage(pattern=r'\.trewq$'))
+async def stop_auto_delete(event):
+    chat_id = event.chat_id
     
     # Check if user is admin
     try:
-        member = await client.get_chat_member(chat_id, message.from_user.id)
-        if member.status not in ["administrator", "creator"]:
-            await message.reply("❌ You need to be an admin to use this command!")
+        sender = await event.get_sender()
+        participant = await event.client.get_permissions(event.chat_id, sender.id)
+        
+        if not participant.is_admin and not participant.is_creator:
+            await event.reply("❌ You need to be an admin to use this command!")
             return
     except Exception as e:
         logger.error(f"Error checking admin status: {e}")
-        await message.reply("❌ Error checking admin status!")
+        await event.reply("❌ Error checking admin status!")
         return
     
     active_groups[chat_id] = False
-    await message.reply("⏹️ **Auto-delete stopped!**\n\n"
-                       "Messages will no longer be automatically deleted.")
+    await event.reply("⏹️ **Auto-delete stopped!**\n\n"
+                     "Messages will no longer be automatically deleted.")
 
-@app.on_message(filters.command("status") & filters.group)
-async def check_status(client: Client, message: Message):
-    chat_id = message.chat.id
+@client.on(events.NewMessage(pattern=r'\.status$'))
+async def check_status(event):
+    chat_id = event.chat_id
     status = active_groups.get(chat_id, False)
     
     if status:
-        status_text = "🟢 **ACTIVE**"
-        await message.reply(f"{status_text}\n\n"
-                           f"📋 Messages older than 120 seconds are being deleted.\n"
-                           f"🎯 Chat ID: `{chat_id}`")
+        await event.reply(f"🟢 **AUTO-DELETE ACTIVE**\n\n"
+                         f"📋 Messages older than 120 seconds are being deleted.\n"
+                         f"🎯 Chat ID: `{chat_id}`")
     else:
-        status_text = "🔴 **INACTIVE**"
-        await message.reply(f"{status_text}\n\n"
-                           f"⏸️ Auto-delete is not running.\n"
-                           f"🚀 Send `.qwert` to activate.")
+        await event.reply(f"🔴 **AUTO-DELETE INACTIVE**\n\n"
+                         f"⏸️ Auto-delete is not running.\n"
+                         f"🚀 Send `.qwert` to activate.")
 
-@app.on_message(filters.command("help") & filters.group)
-async def help_command(client: Client, message: Message):
-    await message.reply("📚 **Auto-Delete UserBot Commands**\n\n"
-                       "🔹 `.qwert` - Start auto-deleting old messages\n"
-                       "🔹 `.trewq` - Stop auto-deleting\n"
-                       "🔹 `.status` - Check current status\n"
-                       "🔹 `.help` - Show this help message\n\n"
-                       "⚙️ **Features:**\n"
-                       "• Deletes messages older than 120 seconds\n"
-                       "• Works on all member messages\n"
-                       "• Only admins can control the bot\n\n"
-                       "⚠️ Make sure the bot has admin rights with 'Delete Messages' permission!")
+@client.on(events.NewMessage(pattern=r'\.help$'))
+async def help_command(event):
+    await event.reply("📚 **Auto-Delete UserBot Commands**\n\n"
+                     "🔹 `.qwert` - Start auto-deleting old messages\n"
+                     "🔹 `.trewq` - Stop auto-deleting\n"
+                     "🔹 `.status` - Check current status\n"
+                     "🔹 `.help` - Show this help message\n\n"
+                     "⚙️ **Features:**\n"
+                     "• Deletes messages older than 120 seconds\n"
+                     "• Works on all messages (members & bots)\n"
+                     "• Only admins can control the bot\n\n"
+                     "⚠️ **Setup:**\n"
+                     "1. Add this bot as admin\n"
+                     "2. Grant 'Delete Messages' permission\n"
+                     "3. Send `.qwert` to start")
 
-@app.on_message(filters.command("start") & filters.private)
-async def start_private(client: Client, message: Message):
-    await message.reply("🤖 **Welcome to Auto-Delete UserBot!**\n\n"
-                       "Add me to your group as an admin with 'Delete Messages' permission.\n"
-                       "Then use these commands in the group:\n"
-                       "• `.qwert` - Start auto-delete\n"
-                       "• `.trewq` - Stop auto-delete\n"
-                       "• `.status` - Check status")
+# Background task to delete old messages
+@client.on(events.NewMessage)
+async def delete_old_messages(event):
+    chat_id = event.chat_id
+    
+    # Skip if not a group or auto-delete not active
+    if not event.is_group:
+        return
+    
+    if chat_id not in active_groups or not active_groups[chat_id]:
+        return
+    
+    # Don't delete command messages immediately
+    if event.raw_text and event.raw_text.startswith('.'):
+        return
+    
+    # Check message age
+    current_time = datetime.now(event.message.date.tzinfo)
+    message_age = (current_time - event.message.date).total_seconds()
+    
+    if message_age >= 120:
+        try:
+            await asyncio.sleep(0.5)  # Small delay to avoid rate limits
+            await event.delete()
+            logger.info(f"Deleted old message from chat {chat_id}")
+        except Exception as e:
+            logger.error(f"Failed to delete message: {e}")
+
+# Periodic cleanup for messages that were already old when bot started
+async def periodic_cleanup():
+    while True:
+        await asyncio.sleep(60)  # Check every minute
+        
+        for chat_id in active_groups:
+            if not active_groups[chat_id]:
+                continue
+                
+            try:
+                # Get recent messages
+                async for message in client.iter_messages(chat_id, limit=100):
+                    if message.date:
+                        current_time = datetime.now(message.date.tzinfo)
+                        age = (current_time - message.date).total_seconds()
+                        
+                        if age >= 120 and not (message.raw_text and message.raw_text.startswith('.')):
+                            try:
+                                await message.delete()
+                                await asyncio.sleep(0.3)
+                            except:
+                                pass
+            except Exception as e:
+                logger.error(f"Periodic cleanup error in {chat_id}: {e}")
+
+@client.on(events.NewMessage(pattern=r'\.start$', func=lambda e: e.is_private))
+async def start_private(event):
+    await event.reply("🤖 **Welcome to Auto-Delete UserBot!**\n\n"
+                     "Add me to your group as an admin with 'Delete Messages' permission.\n\n"
+                     "**Quick Setup:**\n"
+                     "1️⃣ Add me to your group\n"
+                     "2️⃣ Make me admin with delete rights\n"
+                     "3️⃣ Send `.qwert` in the group to start\n\n"
+                     "**Commands:**\n"
+                     "• `.qwert` - Start auto-delete\n"
+                     "• `.trewq` - Stop auto-delete\n"
+                     "• `.status` - Check status\n"
+                     "• `.help` - Show help")
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("🤖 AUTO-DELETE USERBOT STARTED")
+    print("🤖 AUTO-DELETE USERBOT (TELETHON) STARTED")
     print("=" * 50)
     print("📝 Commands available in groups:")
     print("   .qwert  - Start auto-delete")
@@ -145,4 +174,9 @@ if __name__ == "__main__":
     print("✅ Bot is running...")
     print("=" * 50)
     
-    app.run()
+    # Start periodic cleanup task
+    loop = asyncio.get_event_loop()
+    loop.create_task(periodic_cleanup())
+    
+    # Run client
+    client.run_until_disconnected()
