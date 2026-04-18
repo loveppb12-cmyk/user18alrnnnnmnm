@@ -1,4 +1,5 @@
-from telethon import TelegramClient, events, Button
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from telethon.tl.types import MessageEntityMentionName
 import asyncio
 from datetime import datetime, timedelta
@@ -106,7 +107,7 @@ async def delete_old_messages(event):
     if chat_id not in active_groups or not active_groups[chat_id]:
         return
     
-    # Don't delete command messages immediately
+    # Don't delete command messages
     if event.raw_text and event.raw_text.startswith('.'):
         return
     
@@ -127,8 +128,8 @@ async def periodic_cleanup():
     while True:
         await asyncio.sleep(60)  # Check every minute
         
-        for chat_id in active_groups:
-            if not active_groups[chat_id]:
+        for chat_id in list(active_groups.keys()):
+            if not active_groups.get(chat_id, False):
                 continue
                 
             try:
