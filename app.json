@@ -1,0 +1,23 @@
+{
+  "name": "Telegram Auto-Delete UserBot",
+  "description": "UserBot that auto-deletes messages older than 120 seconds",
+  "env": {
+    "API_ID": {
+      "description": "Your Telegram API ID",
+      "value": "20284828"
+    },
+    "API_HASH": {
+      "description": "Your Telegram API Hash",
+      "value": "a980ba25306901d5c9b899414d6a9ab7"
+    },
+    "STRING_SESSION": {
+      "description": "Your Pyrogram String Session",
+      "value": "1BVtsOKEBu2mCSVteN-_nv6WDQAlB_GXOlriz-YHBGeJlZXgYENIyvTptkBrW-ZoBn_HDOAYPFfJCHSut9nJrhKJYmDa4i2oXuVhPNj5dY8_qCCT98PWlKVhRcMq_DJXK_uk2xhwcQn6MMpAwv2BwcMhgQkptNKnv0Dw5fpn-cFQ_62AeX3xSEAnpwHTv0jyjdkqOE4c3hb861_tBw2SmVR0YO_bIH-JyjN8q1uT8zztQW3NbQHBTZ84YM8HTwyONz46w3CCNLFG3KV-aMrb2RgmsbIxCNRXT4cSA68HuVX_cwLX_wVVfxtGQKo-34a_-Ls4eAOOGTeIe1IvfofF897ibxAf03aY="
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
